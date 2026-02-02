@@ -1,0 +1,43 @@
+package tlsutil
+
+import (
+	"crypto/tls"
+	"os"
+	"testing"
+)
+
+func TestApplyPQCConfig_Default(t *testing.T) {
+	os.Unsetenv("TLS_PQC_ENABLED")
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	ApplyPQCConfig(cfg)
+	if cfg.CurvePreferences != nil {
+		t.Errorf("expected nil CurvePreferences (use Go default with PQC), got %v", cfg.CurvePreferences)
+	}
+}
+
+func TestApplyPQCConfig_Disabled(t *testing.T) {
+	os.Setenv("TLS_PQC_ENABLED", "false")
+	defer os.Unsetenv("TLS_PQC_ENABLED")
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	ApplyPQCConfig(cfg)
+	if len(cfg.CurvePreferences) == 0 {
+		t.Error("expected CurvePreferences set when PQC disabled")
+	}
+	// Should not include X25519MLKEM768 (CurveID 45881, TLS 1.3 only)
+	const x25519MLKEM768 = 45881
+	for _, c := range cfg.CurvePreferences {
+		if c == tls.CurveID(x25519MLKEM768) {
+			t.Error("CurvePreferences should not include X25519MLKEM768 when PQC disabled")
+		}
+	}
+}
+
+func TestApplyPQCConfig_ExplicitEnabled(t *testing.T) {
+	os.Setenv("TLS_PQC_ENABLED", "true")
+	defer os.Unsetenv("TLS_PQC_ENABLED")
+	cfg := &tls.Config{}
+	ApplyPQCConfig(cfg)
+	if cfg.CurvePreferences != nil {
+		t.Errorf("expected nil when PQC enabled, got %v", cfg.CurvePreferences)
+	}
+}
