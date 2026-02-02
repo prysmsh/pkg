@@ -1,3 +1,3 @@
-module github.com/einyx/pkg/tlsutil
+module github.com/prysmsh/pkg/tlsutil
 
 go 1.21

@@ -1,4 +1,4 @@
-# github.com/einyx/pkg
+# github.com/prysmsh/pkg
 
 Shared Go utilities for Prysm.
 
@@ -11,7 +11,7 @@ Shared Go utilities for Prysm.
 
 ```go
 import (
-    "github.com/einyx/pkg/tlsutil"
-    "github.com/einyx/pkg/pqc"
+    "github.com/prysmsh/pkg/tlsutil"
+    "github.com/prysmsh/pkg/pqc"
 )
 ```

@@ -1,4 +1,4 @@
-module github.com/einyx/pkg/pqc
+module github.com/prysmsh/pkg/pqc
 
 go 1.24.0
 
