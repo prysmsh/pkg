@@ -2,7 +2,6 @@ package pqc
 
 import (
 	"crypto/rand"
-	"errors"
 	"io"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -26,9 +25,10 @@ func EncryptPayload(sharedSecret [SharedSecretSize]byte, plaintext []byte) ([]by
 }
 
 // DecryptPayload decrypts ciphertext produced by EncryptPayload.
+// Returns ErrDecryptionFailed if the ciphertext is tampered or authentication fails.
 func DecryptPayload(sharedSecret [SharedSecretSize]byte, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < NonceSize {
-		return nil, errors.New("ciphertext too short")
+		return nil, ErrDecryptionFailed
 	}
 	aead, err := chacha20poly1305.NewX(sharedSecret[:])
 	if err != nil {
@@ -36,5 +36,9 @@ func DecryptPayload(sharedSecret [SharedSecretSize]byte, ciphertext []byte) ([]b
 	}
 	nonce := ciphertext[:NonceSize]
 	ct := ciphertext[NonceSize:]
-	return aead.Open(nil, nonce, ct, nil)
+	plaintext, err := aead.Open(nil, nonce, ct, nil)
+	if err != nil {
+		return nil, ErrDecryptionFailed
+	}
+	return plaintext, nil
 }

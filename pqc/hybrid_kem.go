@@ -13,14 +13,24 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const (
-	X25519KeySize       = 32
-	HybridPublicKeySize = X25519KeySize + kyber768.PublicKeySize
-	HybridSecretKeySize = X25519KeySize + kyber768.PrivateKeySize
-	HybridCiphertextSize = X25519KeySize + kyber768.CiphertextSize
-	SharedSecretSize    = 32
+// Sentinel errors for programmatic error handling.
+var (
+	ErrInvalidPublicKey   = errors.New("pqc: invalid public key size")
+	ErrInvalidCiphertext  = errors.New("pqc: invalid ciphertext size")
+	ErrInvalidKeyData     = errors.New("pqc: hybrid key data too short")
+	ErrDecryptionFailed   = errors.New("pqc: decryption failed")
 )
 
+const (
+	X25519KeySize        = 32
+	HybridPublicKeySize  = X25519KeySize + kyber768.PublicKeySize
+	HybridSecretKeySize  = X25519KeySize + kyber768.PrivateKeySize
+	HybridCiphertextSize = X25519KeySize + kyber768.CiphertextSize
+	SharedSecretSize     = 32
+)
+
+// HybridKeyPair holds the combined X25519 and Kyber768 key material.
+// Keep the private key material secret; use PublicKey() for distribution.
 type HybridKeyPair struct {
 	X25519Public  [X25519KeySize]byte
 	X25519Private [X25519KeySize]byte
@@ -28,11 +38,13 @@ type HybridKeyPair struct {
 	KyberPrivate kem.PrivateKey
 }
 
+// HybridPublicKey is the public portion of a HybridKeyPair, safe to share.
 type HybridPublicKey struct {
 	X25519Public [X25519KeySize]byte
 	KyberPublic  kem.PublicKey
 }
 
+// GenerateKeyPair creates a new hybrid key pair for key encapsulation.
 func GenerateKeyPair() (*HybridKeyPair, error) {
 	kp := &HybridKeyPair{}
 	if _, err := io.ReadFull(rand.Reader, kp.X25519Private[:]); err != nil {
@@ -69,7 +81,7 @@ func (pk *HybridPublicKey) MarshalBinary() ([]byte, error) {
 
 func UnmarshalPublicKey(data []byte) (*HybridPublicKey, error) {
 	if len(data) != HybridPublicKeySize {
-		return nil, errors.New("invalid public key size")
+		return nil, ErrInvalidPublicKey
 	}
 	pk := &HybridPublicKey{}
 	copy(pk.X25519Public[:], data[:X25519KeySize])
@@ -108,7 +120,7 @@ func Encapsulate(recipientPub *HybridPublicKey) (ciphertext []byte, sharedSecret
 func (kp *HybridKeyPair) Decapsulate(ciphertext []byte) ([SharedSecretSize]byte, error) {
 	var sharedSecret [SharedSecretSize]byte
 	if len(ciphertext) != HybridCiphertextSize {
-		return sharedSecret, errors.New("invalid ciphertext size")
+		return sharedSecret, ErrInvalidCiphertext
 	}
 	var ephemeralPublic [X25519KeySize]byte
 	copy(ephemeralPublic[:], ciphertext[:X25519KeySize])
@@ -141,7 +153,7 @@ func (kp *HybridKeyPair) MarshalKeyPair() ([]byte, error) {
 // UnmarshalKeyPair deserializes a key pair from storage.
 func UnmarshalKeyPair(data []byte) (*HybridKeyPair, error) {
 	if len(data) < X25519KeySize {
-		return nil, errors.New("hybrid key data too short")
+		return nil, ErrInvalidKeyData
 	}
 	kp := &HybridKeyPair{}
 	copy(kp.X25519Private[:], data[:X25519KeySize])

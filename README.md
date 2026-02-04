@@ -1,21 +1,24 @@
 # prysmsh/pkg
 
-Shared Go library for the Prysm ecosystem: internal utilities and **post-quantum cryptography (PQC) integration**.
+[![Go Reference](https://pkg.go.dev/badge/github.com/prysmsh/pkg.svg)](https://pkg.go.dev/github.com/prysmsh/pkg)
 
-## Overview
+Post-quantum cryptography and security utilities for Go. Hybrid KEM (X25519 + Kyber768), timing-safe comparison, secure random tokens, retry with backoff, and TLS PQC helpers.
 
-This package serves two purposes:
+**Maintained by [Prysm](https://prysm.sh).** Use in any Go project.
 
-1. **Internal library** – Shared utilities and helpers used across Prysm services (backend, agent, CLI, etc.).
-2. **PQC integration library** – Standalone post-quantum crypto primitives and TLS helpers for quantum-resistant deployments.
+## Why prysmsh/pkg?
 
-External projects can use the PQC packages directly for hybrid key exchange and TLS configuration.
+- **PQC-ready today** – Go 1.24+ uses X25519MLKEM768 by default; this library provides hybrid KEM and AEAD for application-layer encryption
+- **Minimal dependencies** – cloudflare/circl, golang.org/x/crypto
+- **Battle-tested** – Used in production across Prysm services (backend, agent, CLI, mesh)
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| [`pqc`](./pqc) | Post-quantum hybrid KEM (X25519 + Kyber768) and AEAD encryption for DERP and mesh. |
+| [`pqc`](./pqc) | Post-quantum hybrid KEM (X25519 + Kyber768) and AEAD encryption. |
+| [`secure`](./secure) | Security primitives: constant-time comparison, secure random bytes, random hex tokens. |
+| [`retry`](./retry) | Retry with exponential backoff (1s, 2s, 4s, ...). |
 | [`tlsutil`](./tlsutil) | TLS configuration helpers for PQC (e.g. `TLS_PQC_ENABLED` env toggle). |
 
 ## Installation
@@ -57,14 +60,79 @@ import (
     "github.com/prysmsh/pkg/tlsutil"
 )
 
+// Quick defaults (MinVersion TLS 1.2, PQC applied)
+clientCfg := tlsutil.DefaultClientConfig()
+serverCfg := tlsutil.DefaultServerConfig()
+
+// Or apply to existing config
 cfg := &tls.Config{MinVersion: tls.VersionTLS12}
 tlsutil.ApplyPQCConfig(cfg)  // Uses TLS_PQC_ENABLED env (default: true)
+```
+
+### Secure – Timing-safe comparison and random tokens
+
+```go
+import "github.com/prysmsh/pkg/secure"
+
+// Constant-time comparison (for tokens, CSRF, API keys)
+if !secure.ConstantTimeEqual([]byte(got), []byte(want)) {
+    return errors.New("invalid token")
+}
+
+// Secure random bytes and hex strings
+id, _ := secure.RandomHex(32)  // 64-char hex string
+bytes, _ := secure.RandomBytes(16)
+```
+
+### Retry – Exponential backoff
+
+```go
+import (
+    "context"
+    "github.com/prysmsh/pkg/retry"
+)
+
+err := retry.Do(ctx, 5, func() error {
+    return doSomething()
+})
+// Stops on success, context cancel, or wrap errors with retry.ErrNonRetryable to skip retries
+```
+
+### Error handling
+
+The `pqc` package exposes sentinel errors for programmatic handling:
+
+```go
+if errors.Is(err, pqc.ErrInvalidPublicKey) {
+    // handle invalid public key
+}
+if errors.Is(err, pqc.ErrDecryptionFailed) {
+    // handle tampered or corrupted ciphertext
+}
+```
+
+## Examples
+
+Runnable examples are in the [`examples/`](./examples) directory:
+
+```bash
+go run ./examples/pqc
+go run ./examples/secure
+go run ./examples/retry
 ```
 
 ## Requirements
 
 - Go 1.21+
 - For TLS PQC (X25519MLKEM768): Go 1.24+
+
+## Versioning
+
+This module follows [semantic versioning](https://semver.org/). The public API (packages `pqc`, `secure`, `retry`, and `tlsutil`) is stable. Breaking changes will result in a major version bump. The `internal/` package is not part of the public API.
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

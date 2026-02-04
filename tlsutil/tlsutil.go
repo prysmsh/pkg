@@ -29,3 +29,19 @@ func ApplyPQCConfig(cfg *tls.Config) {
 		cfg.CurvePreferences = curvesNoPQC
 	}
 }
+
+// DefaultClientConfig returns a TLS config suitable for client connections.
+// MinVersion is TLS 1.2; PQC settings are applied via ApplyPQCConfig.
+func DefaultClientConfig() *tls.Config {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	ApplyPQCConfig(cfg)
+	return cfg
+}
+
+// DefaultServerConfig returns a TLS config suitable for server connections.
+// MinVersion is TLS 1.2; PQC settings are applied via ApplyPQCConfig.
+func DefaultServerConfig() *tls.Config {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	ApplyPQCConfig(cfg)
+	return cfg
+}
